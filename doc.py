@@ -1,29 +1,42 @@
 import streamlit as st
-from PyPDF2 import PdfReader
 from gtts import gTTS
+import io
+from PyPDF2 import PdfReader
 
-st.title("📘 Document-to-Speech Converter")
-st.write("Upload a PDF or text file and I’ll read it for you!")
+# ------------------------------
+# Helper function to extract text
+# ------------------------------
+def extract_text(file):
+    text = ""
+    if file.type == "application/pdf":
+        pdf = PdfReader(file)
+        for page in pdf.pages:
+            text += page.extract_text()
+    elif file.type == "text/plain":
+        text = file.read().decode("utf-8")
+    else:
+        st.error("Unsupported file type!")
+    return text
 
-uploaded_file = st.file_uploader("Choose a file", type=["pdf", "txt"])
+# ------------------------------
+# Streamlit Interface
+# ------------------------------
+st.title("📄 Document to Speech Converter")
+
+uploaded_file = st.file_uploader("Upload a TXT or PDF file", type=["txt", "pdf"])
 
 if uploaded_file:
-    text = ""
-    if uploaded_file.name.endswith(".pdf"):
-        reader = PdfReader(uploaded_file)
-        for page in reader.pages:
-            text += page.extract_text() or ""
+    text = extract_text(uploaded_file)
+
+    if text.strip() == "":
+        st.warning("The uploaded document is empty or could not extract text.")
     else:
-        text = uploaded_file.read().decode("utf-8")
-
-    st.subheader("📝 Text Preview:")
-    st.text_area("Extracted Text", text[:1000] + "..." if len(text) > 1000 else text, height=200)
-
-    if st.button("🎧 Convert to Speech"):
-        if text.strip():
-            tts = gTTS(text)
-            tts.save("speech.mp3")
-            st.audio("speech.mp3")
-            st.download_button("Download Speech", data=open("speech.mp3", "rb"), file_name="speech.mp3")
-        else:
-            st.error("No text found to read.")
+        if st.button("Convert to Speech"):
+            try:
+                tts = gTTS(text)
+                mp3_fp = io.BytesIO()
+                tts.write_to_fp(mp3_fp)  # write audio to memory
+                mp3_fp.seek(0)
+                st.audio(mp3_fp, format="audio/mp3")
+            except Exception as e:
+                st.error(f"Error during text-to-speech conversion: {e}")
