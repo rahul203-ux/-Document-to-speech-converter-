@@ -1,0 +1,4 @@
+streamlit
+PyPDF2==3.0.1
+gTTS
+python-docx
